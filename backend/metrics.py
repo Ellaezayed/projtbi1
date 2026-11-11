@@ -93,6 +93,9 @@ def build_snapshot(data: Dataset) -> Snapshot:
     return Snapshot(products, reviews, overview, records(categories), review_summary)
 
 
-def page(frame: pd.DataFrame, limit: int, offset: int) -> dict:
+def page(frame: pd.DataFrame, limit: int, offset: int, columns: tuple[str, ...] | None = None) -> dict:
+    selection = frame.iloc[offset:offset + limit]
+    if columns is not None:
+        selection = selection.reindex(columns=list(columns))
     return {"total": len(frame), "limit": limit, "offset": offset,
-            "items": records(frame.iloc[offset:offset + limit])}
+            "items": records(selection)}
