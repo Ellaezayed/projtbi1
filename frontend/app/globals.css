@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+@theme {
+  --color-blush: #FCEEF2;
+  --color-rose: #E8A0B4;
+  --color-burgundy: #800F35;
+  --color-surface: #F7F7F8;
+  --color-charcoal: #29252A;
+}
