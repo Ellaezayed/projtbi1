@@ -1,8 +1,8 @@
 # Sephora Business Insight
 
-Parts 1 and 2 provide a dataset audit, a branded Next.js starter, and a FastAPI analytics API. See [DATASET.md](DATASET.md) for verified counts, the full schema, join checks, and BI definitions.
+Sephora Business Insight is a dashboard for analyzing the Sephora product catalog and customer reviews. The executive overview shows catalog coverage, star ratings, recommendation rates, review activity, and the products with the most observed reviews. See [DATASET.md](DATASET.md) for the dataset schema, join checks, and metric definitions.
 
-The application architecture is **Next.js → FastAPI → Pandas → local CSV files**. The API reads review shards in chunks, removes duplicate business records, and joins reviews to the catalog by product ID. It caches one processed snapshot in memory per server process and refreshes it when a source file changes. The first analytics request loads the snapshot. The frontend displays the starter page until the dashboard is built in Part 3.
+The application architecture is **Next.js → FastAPI → Pandas → local CSV files**. The API reads review shards in chunks, removes duplicate business records, and joins reviews to the catalog by product ID. It caches one processed snapshot in memory per server process and refreshes it when a source file changes. The first analytics request loads the snapshot.
 
 ## Local setup (Windows PowerShell)
 
@@ -17,7 +17,7 @@ Copy-Item backend/.env.example backend/.env
 notepad backend/.env
 ```
 
-Set `SEPHORA_DATASET_DIR` to your local dataset directory and save the file. If the path contains spaces, quote it; forward slashes work on Windows. Leave `AI_API_KEY` blank in Part 1. Restart the backend after changing the file.
+Set `SEPHORA_DATASET_DIR` to the directory containing `product_info.csv` and the five review files listed in [DATASET.md](DATASET.md). Quote paths with spaces. Forward slashes work on Windows. The dashboard requires no AI API key. Restart the backend after editing its environment file.
 
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload
@@ -27,15 +27,15 @@ Set `SEPHORA_DATASET_DIR` to your local dataset directory and save the file. If 
 
 ```powershell
 cd frontend
-npm install
+npm ci
 npm run dev -- --hostname localhost
 ```
 
-When a lockfile is present, use `npm ci` for repeat installs.
+If FastAPI runs on a different origin, copy `frontend/.env.example` to `frontend/.env.local` and set `SEPHORA_API_URL` before starting Next.js.
 
 ## Verify
 
-- Open [the starter page](http://localhost:3000). It should display “Sephora Business Insight.”
+- Open [the executive overview](http://localhost:3000) and check that the KPI cards and charts load.
 - Run `Invoke-RestMethod http://127.0.0.1:8000/health`. Expect `status: ok` and `dataset_directory_exists: True` with a configured directory.
 - Run `Invoke-RestMethod http://127.0.0.1:8000/api/overview` and compare counts with the audit. The supplied archive should yield 8,494 products and 1,094,187 observed reviews after deduplication.
 - From the project root, run `.\.venv\Scripts\python.exe -m unittest discover -s backend -v` to test the cleaning and cache refresh logic.
@@ -57,14 +57,21 @@ Open [FastAPI's interactive API reference](http://127.0.0.1:8000/docs) to run re
 
 List responses contain `total`, `limit`, `offset`, and `items`. The API returns missing values as JSON `null`. Observed average ratings count each valid review once. Recommendation rates divide positive responses by known responses and range from zero to one. Review listing responses omit reviewer IDs. Missing or incompatible source files produce HTTP 503 on analytics routes.
 
-## First GitHub commit
+## Public repository safety
 
-Create an empty GitHub repository. From the project directory, review the files staged before committing. Keep the original CSVs outside the repository.
+Keep credentials in backend environment variables. The frontend API origin is a server-side setting and carries no credentials. Use the checked-in `.env.example` files to see the available settings and set real values only in local ignored environment files.
+
+After cloning, enable the repository's pre-commit and pre-push checks and run an initial scan from the project root:
 
 ```powershell
-git add .gitignore README.md DATASET.md backend frontend
-git diff --cached --name-only
-git commit -m "Part 1: Initialize Sephora Business Insight"
-git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
-git push -u origin main
+git config core.hooksPath .githooks
+python scripts/check_public_repo.py
 ```
+
+The hooks require Python on PATH. Set `SEPHORA_PYTHON` to the Python executable if needed. The checks inspect the Git index, reachable commit history, and any additional commit tips being pushed. They block private files and common credential patterns without printing the matched values. Review the staged diff alongside the scan, since pattern matching cannot identify every secret. Push only after the scan passes and the repository owner approves.
+
+In the restricted Windows workspace, Git for Windows could not start its hook shell (exit code 66). If this happens, run `python scripts/check_public_repo.py` directly after staging, then run it again against the final commit before pushing the current branch. The direct command checks the staged files and all locally reachable commits, including the current branch tip.
+
+Keep original datasets and processed caches local. Include CSVs in the public repository only after verifying that the dataset license permits redistribution and obtaining approval. A dataset being available for download does not establish redistribution rights.
+
+Any future AI requests must go through FastAPI. Before exposing AI routes publicly, require authentication, per-user rate limits, request size and concurrency limits, and enforceable usage or spending caps.

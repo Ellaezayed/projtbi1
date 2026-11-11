@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { DashboardShell } from "./dashboard-shell";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,5 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-  return <html lang="en"><body className="bg-white text-charcoal">{children}</body></html>;
+  return (
+    <html lang="en">
+      <body><DashboardShell>{children}</DashboardShell></body>
+    </html>
+  );
 }
