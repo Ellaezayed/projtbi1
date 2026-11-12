@@ -8,19 +8,21 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-from dataset import DatasetError, SnapshotCache
+from dataset import REVIEW_FIELDS, DatasetError, SnapshotCache
 from metrics import Snapshot, page
+from security import AnalyticsRateLimit, approved_origins, require_review_access
 
 BACKEND_DIR = Path(__file__).resolve().parent
 load_dotenv(BACKEND_DIR / ".env")
 
 app = FastAPI(title="Sephora Business Insight")
 cache = SnapshotCache()
+app.add_middleware(AnalyticsRateLimit)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")],
+    allow_origins=approved_origins(os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")),
     allow_methods=["GET"],
-    allow_headers=[],
+    allow_headers=["Authorization"],
 )
 
 def dataset_directory() -> Path | None:
@@ -50,6 +52,13 @@ def current_snapshot() -> Snapshot:
 
 
 Data = Annotated[Snapshot, Depends(current_snapshot)]
+
+
+def review_snapshot(_: Annotated[None, Depends(require_review_access)]) -> Snapshot:
+    return current_snapshot()
+
+
+ReviewData = Annotated[Snapshot, Depends(review_snapshot)]
 Limit = Annotated[int, Query(ge=1, le=100)]
 Offset = Annotated[int, Query(ge=0)]
 Rating = Annotated[int | None, Query(ge=1, le=5)]
@@ -105,7 +114,7 @@ def reviews_summary(data: Data) -> dict:
 
 @app.get("/api/reviews")
 def reviews(
-    data: Data,
+    data: ReviewData,
     limit: Limit = 25,
     offset: Offset = 0,
     product_id: Annotated[str | None, Query(max_length=120)] = None,
@@ -131,4 +140,4 @@ def reviews(
         if date_to:
             keep &= days <= pd.Timestamp(date_to)
         rows = rows[keep]
-    return page(rows, limit, offset)
+    return page(rows, limit, offset, columns=(*REVIEW_FIELDS, "primary_category"))

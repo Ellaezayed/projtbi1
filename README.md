@@ -6,7 +6,7 @@ The application architecture is **Next.js → FastAPI → Pandas → local CSV f
 
 ## Local setup (Windows PowerShell)
 
-Install Node.js 20.9+ (Node 22 recommended), Python 3.11+, and Git. Run from the project directory.
+Install Node.js 20.9+ (Node 22 recommended), Python 3.12, and Git. Run from the project directory. Python runtime dependencies are version-pinned, including transitive dependencies, and the frontend uses its npm lockfile.
 
 **Backend terminal**
 
@@ -53,7 +53,11 @@ Open [FastAPI's interactive API reference](http://127.0.0.1:8000/docs) to run re
 | `/api/categories` | Product and observed review counts, listed price, and review-weighted rating by primary category |
 | `/api/products` | Paginated products with search, category, rating thresholds, and sorting |
 | `/api/reviews/summary` | Star distribution, recommendation response and rate, text coverage, and monthly review counts |
-| `/api/reviews` | Paginated reviews with product, category, star rating, and inclusive date filters |
+| `/api/reviews` | Authorized raw review access with pagination and product, category, rating, and date filters |
+
+The dashboard uses the public overview, categories, products, and review summary routes. Raw review access is disabled until the server has a `RAW_REVIEW_API_TOKEN`. Generate a random value, for example with `python -c "import secrets; print(secrets.token_urlsafe(32))"`, and store it in the backend environment. Send it in the HTTPS `Authorization: Bearer …` header from authorized clients only. An optional separate `LIMITED_API_TOKEN` is recognized as a credential without raw review permission. Keep both tokens out of frontend settings, request URLs, and logs. A missing or invalid bearer token returns 401 when raw access is enabled. An authenticated limited token returns 403.
+
+Set `FRONTEND_ORIGIN` to a comma-separated list of exact HTTP(S) origins. The default allows the local dashboard. The API limits analytics to 120 requests per client and 600 total per process per 60-second window, with lower limits of 30 per client and 120 total for raw reviews. It returns 429 with `Retry-After` when a quota is exhausted and 503 when all 16 analytics request slots are busy. Before a public deployment, enforce shared quotas at the gateway for multiple workers, trust forwarding headers only from your proxy, use TLS, and disable or redact access logs that could retain sensitive URLs. Use `--no-proxy-headers` when running Uvicorn directly without a trusted proxy.
 
 List responses contain `total`, `limit`, `offset`, and `items`. The API returns missing values as JSON `null`. Observed average ratings count each valid review once. Recommendation rates divide positive responses by known responses and range from zero to one. Review listing responses omit reviewer IDs. Missing or incompatible source files produce HTTP 503 on analytics routes.
 
@@ -75,3 +79,5 @@ In the restricted Windows workspace, Git for Windows could not start its hook sh
 Keep original datasets and processed caches local. Include CSVs in the public repository only after verifying that the dataset license permits redistribution and obtaining approval. A dataset being available for download does not establish redistribution rights.
 
 Any future AI requests must go through FastAPI. Before exposing AI routes publicly, require authentication, per-user rate limits, request size and concurrency limits, and enforceable usage or spending caps.
+
+The GitHub Actions workflow scans tracked files and history, audits the pinned Python and npm dependency sets, runs the API tests, and builds the dashboard. It uses read-only permissions and needs no credentials or CSVs.

@@ -68,6 +68,8 @@ def findings(blob: bytes):
             yield label
     for match in ASSIGNMENT.finditer(source):
         value = match.group(2).strip().rstrip(",").strip("'\x22")
+        if match.group(1).lower() == "persist-credentials" and value == "false":
+            continue
         if value.lower() in SAFE_PLACEHOLDERS or value.startswith(("${", "$env:", "os.getenv(", "process.env.")):
             continue
         yield "possible literal credential assignment"
